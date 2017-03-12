@@ -21,9 +21,9 @@ type gzipResponseWriter struct {
 }
 
 type ipAddress struct {
-	IpAddressV4 string "" // Needs to start with a lowercase to be marshalled.
-	Source      string ""
-	Error       string ""
+	IpAddressV4 string `json:"ipAddressV4"` // Needs to start with a lowercase to be marshalled.
+	Source      string `json:"source"`
+	Error       string `json:"error"`
 }
 
 func (w gzipResponseWriter) Write(b []byte) (int, error) {
