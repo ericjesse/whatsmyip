@@ -5,6 +5,7 @@ DOCKER_CMD=$(DOCKER_BUILD)/whatsmyip
 $(DOCKER_CMD): clean
 	mkdir -p $(DOCKER_BUILD)
 	$(GO_BUILD_ENV) go build -v -o $(DOCKER_CMD) .
+	docker build -f Dockerfile -t ericjesse/whatsmyip .
 
 clean:
 	rm -rf $(DOCKER_BUILD)
