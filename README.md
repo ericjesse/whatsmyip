@@ -19,6 +19,10 @@ Your app should now be running on [localhost:5000](http://localhost:5000/ip).
 
 Note: if you get the erreur "/bin/sh: whatsmyip: command not found", make sure the current directory is in your $PATH.
 
+You can now test it with the cURL command:
+```sh
+curl -X GET -H "Cache-Control: no-cache" "http://localhost:5000/ip"
+```
 
 ## Deploying to Heroku
 
