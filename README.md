@@ -10,12 +10,12 @@ The application is designed to run on [Heroku](https://www.heroku.com).
 Make sure you have [Go](http://golang.org/doc/install) and the [Heroku Toolbelt](https://toolbelt.heroku.com/) installed.
 
 ```sh
-$ go get -u https://github.com/ericjesse/whatsmyip
+$ go get -u github.com/ericjesse/whatsmyip
 $ cd $GOPATH/src/github.com/ericjesse/whatsmyip
 $ heroku local web
 ```
 
-Your app should now be running on [localhost:5000](http://localhost:5000/).
+Your app should now be running on [localhost:5000](http://localhost:5000/ip).
 
 Note: if you get the erreur "/bin/sh: whatsmyip: command not found", make sure the current directory is in your $PATH.
 
