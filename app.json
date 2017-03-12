@@ -6,7 +6,7 @@
     "go"
   ],
   "image": "heroku/go:1.8",
-  "mount_dir": "src/whatsmyip",
-  "website": "http://github.com/heroku/go-getting-started",
-  "repository": "http://github.com/heroku/go-getting-started"
+  "mount_dir": "src/github.com/ericjesse/whatsmyip",
+  "website": "https://github.com/ericjesse/whatsmyip",
+  "repository": "https://github.com/ericjesse/whatsmyip"
 }
