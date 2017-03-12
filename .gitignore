@@ -1,0 +1,5 @@
+.env
+.docker_build/
+whatsmyip
+*.iml
+.idea

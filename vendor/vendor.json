@@ -1,0 +1,11 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+
+	],
+	"heroku":{
+		"goVersion":"go1.8"
+	},
+	"rootPath": "github.com/ericjesse/whatsmyip"
+}

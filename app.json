@@ -1,0 +1,12 @@
+{
+  "name": "WhatsMyIP",
+  "description": "Simple service to detect the remote IP address of the caller",
+  "keywords": [
+    "whatsmyip",
+    "go"
+  ],
+  "image": "heroku/go:1.8",
+  "mount_dir": "src/whatsmyip",
+  "website": "http://github.com/heroku/go-getting-started",
+  "repository": "http://github.com/heroku/go-getting-started"
+}
