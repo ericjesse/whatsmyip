@@ -1,15 +1,11 @@
 package handlers
 
 import (
-	"compress/gzip"
 	"database/sql"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"strings"
 )
 
 var (
@@ -19,50 +15,24 @@ var (
 	DebugMode bool
 )
 
-// gzipResponseWriter is a writer to handle the GZIP compressed responses.
-type gzipResponseWriter struct {
-	io.Writer
-	http.ResponseWriter
-}
-
-// Write is the implementation of the Writer interface for gzipResponseWriter.
-func (w *gzipResponseWriter) Write(b []byte) (int, error) {
-	return w.Writer.Write(b)
-}
-
-// makeGzipHandler wraps the HTTP response writer by a GZIP writer if the client expects it.
-func makeGzipHandler(fn http.HandlerFunc) http.HandlerFunc {
-	// The handler is created inline.
-	return func(w http.ResponseWriter, req *http.Request) {
-		// Check if the client expects a GZIP response.
-		if !strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
-			fmt.Fprintln(os.Stdout, "No GZIP response is expected")
-			fn(w, req)
-		} else {
-			// Define the response as one containing a GZIP body.
-			w.Header().Set("Content-Encoding", "gzip")
-			// Create a new GZIP writer surrounding the HTTP response writer.
-			gz := gzip.NewWriter(w)
-			// Make sure the writer is closed after the handler is done.
-			gzr := &gzipResponseWriter{Writer: gz, ResponseWriter: w}
-			defer gz.Close()
-			// Run the handler of the HTTP request.
-			fn(gzr, req)
-		}
-	}
-}
-
 func writeResult(w http.ResponseWriter, req *http.Request, body interface{}) {
 	var responseBody, contentType string
-	accept := req.Header.Get("Accept") // Check what the client expects as format.
-	if strings.Contains(accept, "xml") {
-		// XML has to be explicitly requested.
+
+	// Check what the client expects as format.
+	switch accept := req.Header.Get("Accept"); accept {
+	case "application/xml":
 		contentType = "application/xml"
 		xmlBody, _ := xml.Marshal(body)
 		responseBody = string(xmlBody)
-	} else {
-		// JSON is the default.
+	case "application/json":
 		contentType = "application/json"
+		fallthrough
+	case "application/javascript":
+		fallthrough
+	default:
+		if contentType == "" { // Default response type is JSON.
+			contentType = "application/javascript"
+		}
 		jsonBody, _ := json.Marshal(body)
 		responseBody = string(jsonBody)
 	}

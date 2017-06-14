@@ -5,12 +5,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 
 	"whatsmyip/handlers"
 	"whatsmyip/sql/schema"
+
+	"github.com/gorilla/mux"
+	"github.com/phyber/negroni-gzip/gzip"
+	"github.com/urfave/negroni"
 
 	_ "github.com/lib/pq"
 )
@@ -83,10 +86,23 @@ func main() {
 
 	handlers.Db = sm.Db
 	handlers.DebugMode = debugMode
-	http.HandleFunc("/ip", handlers.HandleIPRequest())
+
+	// Create a Gorilla Mux router.
+	router := mux.NewRouter()
+	handlers.HandleIPRequest(router, "/ip")
+
+	// Add the Negroni Middlewares.
+	n := negroni.New()
+	// Log all the requests.
+	n.Use(negroni.NewLogger())
+	// Manage the cases when a handler raises a panic to return 500 Internal Server Error.
+	n.Use(negroni.NewRecovery())
+	// Add the automatic handling of deflated request and responses.
+	n.Use(gzip.Gzip(gzip.DefaultCompression))
+	n.UseHandler(router)
 
 	fmt.Fprintf(os.Stdout, "Service starting on port %s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	n.Run(":" + port)
 }
 
 // validateRequiredArgs validates all the required args and merge values when several sources are possible (flags or env).

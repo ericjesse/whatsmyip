@@ -15,6 +15,15 @@
 			"ImportPath": "github.com/lib/pq/oid",
 			"Comment": "go1.0-cutoff-171-g8837942",
 			"Rev": "8837942c3e09574accbc5f150e2c5e057189cace"
+		},
+		{
+			"ImportPath": "github.com/phyber/negroni-gzip/gzip",
+			"Rev": "8118ae63850fee22b2fe43cea81d3bc149774503"
+		},
+		{
+			"ImportPath": "github.com/urfave/negroni",
+			"Comment": "v0.2.0-115-g1d8981a",
+			"Rev": "1d8981a52d6bda4467a9faacf3fdddd38222dfc4"
 		}
 	]
 }

@@ -7,6 +7,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -18,9 +20,9 @@ const (
 
 // ipAddress is the represention of the IP address of the remote caller, providing also the source from where it was evaluated.
 type ipAddress struct {
-	IPAddressV4 string `json:"ipAddressV4"`
-	Source      string `json:"source"`
-	Error       string `json:"error"`
+	IPAddressV4 string `json:"ipAddressV4" xml:"ipAddressV4"`
+	Source      string `json:"source" xml:"source"`
+	Error       string `json:"error" xml:"error"`
 }
 
 type geoLoc struct {
@@ -71,18 +73,13 @@ func (ipAddress *ipAddress) fetchGeoAndPersist() {
 }
 
 // HandleIPRequest handles all the incoming requests to determine the source IP address.
-func HandleIPRequest() http.HandlerFunc {
-	return makeGzipHandler(mapRequestAndInvoke)
+func HandleIPRequest(router *mux.Router, rootPath string) {
+	router.HandleFunc(rootPath, mapRequestAndInvoke).Methods(http.MethodGet).HeadersRegexp("Accept", "application/(xml|json|javascript)")
 }
 
 // mapRequestAndInvoke check if the request can be processed and run the adequate function.
 func mapRequestAndInvoke(w http.ResponseWriter, req *http.Request) {
-	switch req.Method {
-	case http.MethodGet:
-		getIP(w, req)
-	default:
-		w.WriteHeader(http.StatusNotFound)
-	}
+	getIP(w, req)
 }
 
 // getIP processes the request to known the IP address of the remote caller of a GET call.
