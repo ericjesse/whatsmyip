@@ -1,133 +1,111 @@
 package main
 
 import (
-	// Standard library packages
-	"compress/gzip"
-	"encoding/json"
-	"encoding/xml"
 	"errors"
+	"flag"
 	"fmt"
-	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
-	"strings"
+	"strconv"
+
+	"whatsmyip/handlers"
+	"whatsmyip/sql/schema"
+
+	_ "github.com/lib/pq"
 )
 
-type gzipResponseWriter struct {
-	io.Writer
-	http.ResponseWriter
-}
+var (
+	errPortNotSet  = errors.New("The port to listen was not specified")
+	errDbURLNotSet = errors.New("The URL to the database was not specified")
+)
 
-type ipAddress struct {
-	IpAddressV4 string `json:"ipAddressV4"` // Needs to start with a lowercase to be marshalled.
-	Source      string `json:"source"`
-	Error       string `json:"error"`
-}
-
-func (w gzipResponseWriter) Write(b []byte) (int, error) {
-	return w.Writer.Write(b)
-}
-
-// Surround the HTTP response writer by a GZIP writer if the client expects it.
-func makeGzipHandler(fn http.HandlerFunc) http.HandlerFunc {
-	// The handler is created inline.
-	return func(w http.ResponseWriter, req *http.Request) {
-		// Check if the client expects a GZIP response.
-		if !strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
-			fmt.Fprintln(os.Stdout, "No GZIP response is expected")
-			fn(w, req)
-		} else {
-			// Define the response as one containing a GZIP body.
-			w.Header().Set("Content-Encoding", "gzip")
-			// Create a new GZIP writer surrounding the HTTP response writer.
-			gz := gzip.NewWriter(w)
-			// Make sure the writer is closed after the handler is done.
-			gzr := gzipResponseWriter{Writer: gz, ResponseWriter: w}
-			defer gz.Close()
-			// Run the handler of the HTTP request.
-			fn(gzr, req)
-		}
-	}
-}
-
-// Determine what the IP address of the remote caller is, based upon the HTTP request details.
-func determineIP(req *http.Request) (ipAddress, error) {
-	result := ipAddress{}
-	ip, _, err := net.SplitHostPort(req.RemoteAddr)
-	if err != nil {
-		return result, errors.New(fmt.Sprintf("The user IP: %q is not IP:port", req.RemoteAddr))
-	} else {
-		// If the client is behind a non-anonymous proxy, the IP address is in the X-Forwarded-For header.
-		// req.Header.Get is case-insensitive.
-		result.IpAddressV4 = req.Header.Get("X-Forwarded-For")
-		if result.IpAddressV4 == "" {
-			// If no header can be read, directly extract the address for the request.
-			userIP := net.ParseIP(ip)
-			if userIP == nil {
-				return result, errors.New(fmt.Sprintf("The user IP: %q is not IP:port", req.RemoteAddr))
-			}
-			result.IpAddressV4 = userIP.String()
-			result.Source = "Remote address"
-		} else {
-			result.Source = "X-Forwarded-For"
-		}
-	}
-	return result, nil
-}
-
-// After the IP address was determined, send it with the expected format
-// to the HTTP response.
-func determineAndSendIP(w http.ResponseWriter, req *http.Request) {
-	result, error := determineIP(req)
-	if error != nil {
-		result.Error = error.Error()
-	}
-
-	var responseBody, contentType string
-	accept := req.Header.Get("Accept") // Check what the client expects as format.
-	if strings.Contains(accept, "xml") {
-		// XML has to be explicitly requested.
-		contentType = "application/xml"
-		xmlBody, _ := xml.Marshal(&result)
-		responseBody = string(xmlBody)
-	} else {
-		// JSON is the default.
-		contentType = "application/json"
-		jsonBody, _ := json.Marshal(result)
-		responseBody = string(jsonBody)
-	}
-	// Write the adequate headers.
-	w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", contentType))
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	// Write the body to the response.
-	fmt.Fprintf(w, responseBody)
-	return
+var creationCommands = []schema.CreationCommand{
+	{SchemaVersionTag: 1, SQLCommand: `CREATE SEQUENCE "ipCheckSeq" INCREMENT 1 MINVALUE 1 MAXVALUE 9223372036854775807 START 1 CACHE 1`},
+	{SchemaVersionTag: 2, SQLCommand: `CREATE TABLE "ipCheck" (
+			id BIGINT NOT NULL DEFAULT nextval('"ipCheckSeq"'::regclass),
+			instant timestamp without time zone NOT NULL DEFAULT now(),
+			"ipAddressV4" character varying(15) NOT NULL,
+			source character varying(30) NOT NULL,
+			CONSTRAINT "ipCheckPkey" PRIMARY KEY (id))`},
+	{SchemaVersionTag: 3, SQLCommand: `CREATE SEQUENCE "geoLocSeq" INCREMENT 1 MINVALUE 1 MAXVALUE 9223372036854775807 START 1 CACHE 1`},
+	{SchemaVersionTag: 4, SQLCommand: `CREATE TABLE "geoLoc" (
+			id BIGINT NOT NULL DEFAULT nextval('"ipCheckSeq"'::regclass),
+			instant timestamp without time zone NOT NULL DEFAULT now(),
+			"ipAddressV4" character varying(15) NOT NULL,
+			provider character varying(200) ,
+			city character varying(200),
+			country character varying(100),
+			"countryCode" character varying(5),
+			region character varying(200),
+			timezone character varying(200),
+			"zipCode" character varying(15),
+			latitude double precision,
+			longitude double precision,
+			CONSTRAINT "geoLocPkey" PRIMARY KEY (id))`},
 }
 
 func main() {
-	var port string
-	if len(os.Args) >= 2 {
-		// Get the port from the command line argument.
-		port = os.Args[1]
-	} else {
-		// Get the port to use from the environment variables.
-		port = os.Getenv("PORT")
+	// Get the port to use from the environment variables.
+	port := os.Getenv("PORT")
+	dbURL := os.Getenv("DATABASE_URL")
+	debugMode, _ := strconv.ParseBool(os.Getenv("LOG_DEBUG"))
+
+	// Flags.
+	portFlag := flag.String("port", "", "Port to listen for the services")
+	dbTypeFlag := flag.String("dbType", "postgres", "Name of the database driver to use")
+	dbURLFlag := flag.String("dbUrl", "", "URL to connect to the database")
+	flag.Parse()
+
+	err := validateRequiredArgs(&port, portFlag, &dbURL, dbURLFlag)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if port == "" {
-		// The service cannot run without port to listen.
-		log.Fatal("The port to listen could not be found")
-	} else {
-		// Surround the handler with a GZIP writter handler.
-		http.HandleFunc("/ip", makeGzipHandler(determineAndSendIP))
-
-		fmt.Fprintf(os.Stdout, "Service starting on port %s\n", port)
-		err := http.ListenAndServe(":"+port, nil)
-		if err != nil {
-			log.Fatal(err)
-		}
+	if debugMode {
+		log.Println("Connecting to the DB", dbURL)
+		log.Println("Listening on the port", port)
 	}
+
+	// Preparing the database.
+	schema.DebugMode = debugMode
+	var sm *schema.Manager
+	sm, err = schema.NewSchemaManager(*dbTypeFlag, dbURL, creationCommands)
+	if sm != nil {
+		defer sm.Db.Close()
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sm.WaitForSchemaCompletion()
+	log.Println("Current database version is", sm.DbVersion)
+
+	handlers.Db = sm.Db
+	handlers.DebugMode = debugMode
+	http.HandleFunc("/ip", handlers.HandleIPRequest())
+
+	fmt.Fprintf(os.Stdout, "Service starting on port %s\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+// validateRequiredArgs validates all the required args and merge values when several sources are possible (flags or env).
+func validateRequiredArgs(port *string, portFlag *string, dbURL *string, dbURLFlag *string) error {
+	// Validate the port to listen.
+	if *port == "" && *portFlag == "" {
+		return errPortNotSet
+	}
+	// If the port was specified as a flag, it is set into the port variable.
+	if *port == "" && *portFlag != "" {
+		*port = *portFlag
+	}
+	// Validate the URL to the DB.
+	if *dbURL == "" && *dbURLFlag == "" {
+		return errDbURLNotSet
+	}
+	// If the DB URL was specified as a flag, it is set into the dbURL variable.
+	if *dbURL == "" && *dbURLFlag != "" {
+		*dbURL = *dbURLFlag
+	}
+	return nil
 }

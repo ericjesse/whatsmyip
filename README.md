@@ -21,14 +21,30 @@ $ cd $GOPATH/src/github.com/ericjesse/whatsmyip
 ```sh
 $ cd $GOPATH/src/github.com/ericjesse/whatsmyip
 $ go build
-$ ./whatsmyip 5000
 ```
 
+If some dependencies are missing on your local $GOPATH directory, you can install them using [godep](https://github.com/tools/godep):
+```sh
+$ godep go install
+```
+
+Then, run the app:
+```sh
+$ ./whatsmyip -port 5000 -dbType postgres|sqlite -dbUrl <url to the db>
+```
 Your app should now be running on [localhost:5000/ip](http://localhost:5000/ip).
 
 ## Running locally using Heroku
 
 Make sure you have the [Heroku Toolbelt](https://toolbelt.heroku.com/) installed.
+
+Create the file .env containing the environment variables in your working directory:
+```
+DATABASE_URL=postgres://whatsmyip:whatsmyip@localhost/whatsmyip?sslmode=disable
+PORT=5000
+LOG_DEBUG=false
+```
+Then run the following commands:
 
 ```sh
 $ cd $GOPATH/src/github.com/ericjesse/whatsmyip
@@ -50,7 +66,7 @@ $ git push heroku master
 
 ```sh
 $ make
-$ docker run -d -p 5000:5000 ericjesse/whatsmyip
+$ docker run -d -p 5000:5000 -e DATABASE_URL=postgres://whatsmyip:whatsmyip@ipOfTheDb/whatsmyip?sslmode=disable ericjesse/whatsmyip
 ```
 You can now use the commands below to use the service.
 
@@ -68,4 +84,3 @@ curl -H "Accept-Encoding: application/gzip" -H "Accept: application/xml" "http:/
 If you deployed the service on Heroku, replace _http://localhost:5000_ by the URL of your Heroku's app.  
 
 You can also omit the HTTP header _"Accept-Encoding: application/gzip"_ to receive a plain response.
-
