@@ -7,16 +7,15 @@ import (
 	"encoding/xml"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"strings"
+	"whatsmyip/logger"
 )
 
 var (
 	// Db is the open connection to the database. It has to be set by the main code.
-	Db *sql.DB
-	// DebugMode indicates if debug messages have to be logged. It has to be set by the main code.
-	DebugMode bool
+	Db  *sql.DB
+	log = logger.GetLogger()
 )
 
 func writeReponse(w http.ResponseWriter, req *http.Request, template *template.Template, body interface{}) {

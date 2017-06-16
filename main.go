@@ -4,11 +4,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
-	"strconv"
 
 	"whatsmyip/handlers"
+	"whatsmyip/logger"
 	"whatsmyip/sql/schema"
 
 	"github.com/gorilla/mux"
@@ -49,10 +48,11 @@ var creationCommands = []schema.CreationCommand{
 }
 
 func main() {
+	log := logger.GetLogger()
+
 	// Get the port to use from the environment variables.
 	port := os.Getenv("PORT")
 	dbURL := os.Getenv("DATABASE_URL")
-	debugMode, _ := strconv.ParseBool(os.Getenv("LOG_DEBUG"))
 
 	// Flags.
 	portFlag := flag.String("port", "", "Port to listen for the services")
@@ -65,13 +65,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if debugMode {
-		log.Println("Connecting to the DB", dbURL)
-		log.Println("Listening on the port", port)
-	}
+	log.Debugln("Connecting to the DB", dbURL)
+	log.Debugln("Listening on the port", port)
 
 	// Preparing the database.
-	schema.DebugMode = debugMode
 	var sm *schema.Manager
 	sm, err = schema.NewSchemaManager(*dbTypeFlag, dbURL, creationCommands)
 	if sm != nil {
@@ -85,7 +82,6 @@ func main() {
 	log.Println("Current database version is", sm.DbVersion)
 
 	handlers.Db = sm.Db
-	handlers.DebugMode = debugMode
 
 	// Create a Gorilla Mux router.
 	router := mux.NewRouter()

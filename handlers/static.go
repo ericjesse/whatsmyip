@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"whatsmyip/assets"
@@ -29,15 +28,11 @@ func deliverStaticContent(w http.ResponseWriter, req *http.Request) {
 	pathVars := mux.Vars(req)
 	assetFolder := pathVars["folder"]
 	assetFile := pathVars["file"]
-	if DebugMode {
-		log.Printf("Serving the file %s/%s\n", assetFolder, assetFile)
-	}
+	log.Debugf("Serving the file %s/%s\n", assetFolder, assetFile)
 
 	asset, err := assets.Asset(assetFolder + "/" + assetFile)
 	if err != nil {
-		if DebugMode {
-			log.Printf("The file %s/%s was not found.\n", assetFolder, assetFile)
-		}
+		log.Debugf("The file %s/%s was not found.\n", assetFolder, assetFile)
 		w.WriteHeader(http.StatusNotFound)
 	} else {
 		var contentType string

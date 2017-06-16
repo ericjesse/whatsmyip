@@ -74,13 +74,13 @@ You can now use the commands below to use the service.
 
 To get the result as JSON (default if the HTTP header _"Accept"_ is omitted):
 ```sh
-curl -H "Accept-Encoding: application/gzip" -H "Accept: application/javascript" "http://localhost:5000/ip"
+curl -H "Accept-Encoding: gzip" -H "Accept: application/javascript" "http://localhost:5000/ip"
 ```
 To get the result as XML:
 ```sh
-curl -H "Accept-Encoding: application/gzip" -H "Accept: application/xml" "http://localhost:5000/ip"
+curl -H "Accept-Encoding: gzip" -H "Accept: application/xml" "http://localhost:5000/ip"
 ```
 
 If you deployed the service on Heroku, replace _http://localhost:5000_ by the URL of your Heroku's app.  
 
-You can also omit the HTTP header _"Accept-Encoding: application/gzip"_ to receive a plain response.
+You can also omit the HTTP header _"Accept-Encoding: gzip"_ to receive a plain response.

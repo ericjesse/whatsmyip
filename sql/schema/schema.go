@@ -4,16 +4,14 @@ package schema
 import (
 	"database/sql"
 	"errors"
-	"log"
 	"sort"
 	"sync"
+	"whatsmyip/logger"
 )
 
 var (
 	errQueryToManageSchemaVersionNotFound = errors.New("The queries to manage the schema version for the expected driver were not found")
-
-	// DebugMode indicates if debug messages have to be logged. It has to be set by the main code.
-	DebugMode bool
+	log                                   = logger.GetLogger()
 )
 
 // versionQuery is a type containing the queries required to administrate the schema for a given RDBMS.
@@ -104,15 +102,14 @@ func retrieveCurrentSchemaVersion(dbDriverName string, db *sql.DB) (int32, error
 	versionQuery := versionQueries[dbDriverName]
 	var currentSchemaVersion int32 = -1
 	var dbVersion sql.NullInt64
-	if DebugMode {
-		log.Println("Executing", versionQuery.selectVersionQuery)
-	}
+
+	log.Debugln("Executing", versionQuery.selectVersionQuery)
+
 	row := db.QueryRow(versionQuery.selectVersionQuery)
 	if err := row.Scan(&dbVersion); err != nil {
 		// The table does not exist. Create it.
-		if DebugMode {
-			log.Println("Executing", versionQuery.tableCreationQuery)
-		}
+		log.Debugln("Executing", versionQuery.tableCreationQuery)
+
 		_, err := db.Exec(versionQuery.tableCreationQuery)
 		if err != nil {
 			// The version table could not be created.
@@ -130,17 +127,14 @@ func updateSchemaAndGetNewVersion(db *sql.DB, commandsToExecute []CreationComman
 
 	// Execute all the commands for the update.
 	for _, command := range commandsToExecute {
-		if DebugMode {
-			log.Println("Executing", command.SQLCommand)
-		}
+		log.Debugln("Executing", command.SQLCommand)
+
 		if _, err := db.Exec(command.SQLCommand); err != nil {
 			return currentSchemaVersion, err
 		}
 
 		// Update the value in the version table.
-		if DebugMode {
-			log.Println("Executing", updateVersionQuery, "with arguments:", command.SchemaVersionTag)
-		}
+		log.Debugln("Executing", updateVersionQuery, "with arguments:", command.SchemaVersionTag)
 		if _, err := db.Exec(updateVersionQuery, command.SchemaVersionTag); err != nil {
 			return currentSchemaVersion, err
 		}

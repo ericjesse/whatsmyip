@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log"
 	"net"
+
 	"net/http"
+	"regexp"
 	"time"
 	"whatsmyip/assets"
 
@@ -23,8 +24,9 @@ const (
 )
 
 var (
-	templateFiles = []string{"tpl/ip.html"}
-	ipTemplate    *template.Template
+	ipAddressPattern *regexp.Regexp = regexp.MustCompile(`(([0-9]{1,3}\.)){3}[0-9]{1,3}`)
+	templateFiles                   = []string{"tpl/ip.html"}
+	ipTemplate       *template.Template
 )
 
 func init() {
@@ -111,6 +113,12 @@ func (ipAddress *ipAddress) fetchGeoAndPersist() {
 		return
 	}
 
+	// Fetch the address only if the IP address is valid.
+	if !ipAddressPattern.Match([]byte(ipAddress.IPAddressV4)) {
+		log.Debugln("The address cannot be used for geo localization")
+		return
+	}
+
 	// Lookup of a recent similar geo localisation for the same IP Address.
 	weekBefore := time.Now().Add(time.Hour * 24 * 7)
 	row := Db.QueryRow(countSimilarRecentGeoLoc, ipAddress.IPAddressV4, weekBefore)
@@ -135,9 +143,7 @@ func (ipAddress *ipAddress) fetchGeoAndPersist() {
 			log.Println("Error", err)
 			return
 		}
-		if DebugMode {
-			log.Printf("Result for Geo localisation: %v\n", *geoLoc)
-		}
+		log.Debugf("Result for Geo localisation: %v\n", *geoLoc)
 
 		// Persist the geo localization.
 		_, err = Db.Exec(insertGeoLocQuery, ipAddress.IPAddressV4, geoLoc.Provider, geoLoc.City, geoLoc.Country, geoLoc.CountryCode, geoLoc.Region, geoLoc.Timezone, geoLoc.ZipCode, geoLoc.Latitude, geoLoc.Longitude)
