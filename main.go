@@ -8,6 +8,7 @@ import (
 
 	"whatsmyip/handlers"
 	"whatsmyip/logger"
+	"whatsmyip/sql/maintenance"
 	"whatsmyip/sql/schema"
 
 	"github.com/gorilla/mux"
@@ -53,11 +54,15 @@ func main() {
 	// Get the port to use from the environment variables.
 	port := os.Getenv("PORT")
 	dbURL := os.Getenv("DATABASE_URL")
+	dataRetentionDuration := os.Getenv("DATA_RETENTION")
 
 	// Flags.
 	portFlag := flag.String("port", "", "Port to listen for the services")
 	dbTypeFlag := flag.String("dbType", "postgres", "Name of the database driver to use")
 	dbURLFlag := flag.String("dbUrl", "", "URL to connect to the database")
+	dataRetentionDurationFlag := flag.String("dataRetentionDuration", "", `Duration for the data retention. Default is 6 weeks. A duration string is a possibly signed sequence of
+	decimal numbers, each with optional fraction and a unit suffix,	such as "300ms", "-1.5h" or "2h45m".
+	Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h""`)
 	flag.Parse()
 
 	err := validateRequiredArgs(&port, portFlag, &dbURL, dbURLFlag)
@@ -65,7 +70,13 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Use the environment variable if set, the flag otherwise.
+	if dataRetentionDuration == "" && *dataRetentionDurationFlag != "" {
+		dataRetentionDuration = *dataRetentionDurationFlag
+	}
+
 	log.Debugln("Connecting to the DB", dbURL)
+	log.Debugln("Listening on the port", port)
 	log.Debugln("Listening on the port", port)
 
 	// Preparing the database.
@@ -82,6 +93,7 @@ func main() {
 	log.Println("Current database version is", sm.DbVersion)
 
 	handlers.Db = sm.Db
+	maintenance.Start(sm.Db, dataRetentionDuration)
 
 	// Create a Gorilla Mux router.
 	router := mux.NewRouter()
@@ -108,7 +120,7 @@ func validateRequiredArgs(port *string, portFlag *string, dbURL *string, dbURLFl
 	if *port == "" && *portFlag == "" {
 		return errPortNotSet
 	}
-	// If the port was specified as a flag, it is set into the port variable.
+	// Use the environment variable if set, the flag port otherwise.
 	if *port == "" && *portFlag != "" {
 		*port = *portFlag
 	}
@@ -116,7 +128,7 @@ func validateRequiredArgs(port *string, portFlag *string, dbURL *string, dbURLFl
 	if *dbURL == "" && *dbURLFlag == "" {
 		return errDbURLNotSet
 	}
-	// If the DB URL was specified as a flag, it is set into the dbURL variable.
+	// Use the environment variable if set, the flag dbURL otherwise.
 	if *dbURL == "" && *dbURLFlag != "" {
 		*dbURL = *dbURLFlag
 	}

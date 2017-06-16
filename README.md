@@ -30,9 +30,15 @@ $ godep go install
 
 Then, run the app:
 ```sh
-$ ./whatsmyip -port 5000 -dbType postgres|sqlite -dbUrl <url to the db>
+$ ./whatsmyip -port 5000 -dbType postgres -dbUrl <url to the db> -dataRetentionDuration <data retention duration>
 ```
 Your app should now be running on [localhost:5000/ip](http://localhost:5000/ip).
+
+## Parameters
+- port: the port to listen for the HTTP communications. It can also be set by the environment variable ```PORT```, which has the priority.
+- dbType: the type of the database to use to save usage data. Only ```postgres``` is supported, which is the default value if the parameter is omitted.
+- dbUrl: the URL to the database, e.g: ```postgres://whatsmyip:whatsmyip@hostname/whatsmyip?sslmode=disable```. It can also be set by the environment variable ```DATABASE_URL```, which has the priority.
+- dataRetentionDuration: the duration for the data retention, e.g: "300ms", "-1.5h" or "2h45m". Default is ```6 weeks``` if omitted. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h". It can also be set by the environment variable ```DATA_RETENTION```, which has the priority.
 
 ## Running locally using Heroku
 
@@ -40,14 +46,16 @@ Make sure you have the [Heroku Toolbelt](https://toolbelt.heroku.com/) installed
 
 Create the file .env containing the environment variables in your working directory:
 ```
-DATABASE_URL=postgres://whatsmyip:whatsmyip@localhost/whatsmyip?sslmode=disable
 PORT=5000
+DATABASE_URL=postgres://whatsmyip:whatsmyip@localhost/whatsmyip?sslmode=disable
+DATA_RETENTION=1008h
 LOG_DEBUG=false
 ```
 Then run the following commands:
 
 ```sh
 $ cd $GOPATH/src/github.com/ericjesse/whatsmyip
+$ go install .
 $ heroku local web
 ```
 

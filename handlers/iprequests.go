@@ -15,12 +15,11 @@ import (
 )
 
 const (
-	insertIPResultQuery string = `INSERT INTO "ipCheck" ("ipAddressV4", source) VALUES ($1, $2)`
-	insertGeoLocQuery   string = `INSERT INTO "geoLoc"
+	insertIPResultQuery = `INSERT INTO "ipCheck" ("ipAddressV4", source) VALUES ($1, $2)`
+	insertGeoLocQuery   = `INSERT INTO "geoLoc"
 		("ipAddressV4", provider, city, country, "countryCode", region, timezone, "zipCode", latitude, longitude)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
-	countSimilarRecentGeoLoc string = `SELECT COUNT(1) FROM "geoLoc"
-		WHERE "ipAddressV4" = $1 and instant > $2`
+	countSimilarRecentGeoLoc = `SELECT COUNT(1) FROM "geoLoc" WHERE "ipAddressV4" = $1 and instant > $2`
 )
 
 var (
@@ -120,7 +119,7 @@ func (ipAddress *ipAddress) fetchGeoAndPersist() {
 	}
 
 	// Lookup of a recent similar geo localisation for the same IP Address.
-	weekBefore := time.Now().Add(time.Hour * 24 * 7)
+	weekBefore := time.Now().Add(-time.Hour * 24 * 7)
 	row := Db.QueryRow(countSimilarRecentGeoLoc, ipAddress.IPAddressV4, weekBefore)
 	var count int
 	if err = row.Scan(&count); err != nil {
