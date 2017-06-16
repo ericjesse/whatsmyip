@@ -1,12 +1,14 @@
-// Package handlers is in charge of handling the different incoming requests.
 package handlers
 
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"net"
 	"net/http"
+	"time"
+	"whatsmyip/assets"
 
 	"github.com/gorilla/mux"
 )
@@ -16,7 +18,25 @@ const (
 	insertGeoLocQuery   string = `INSERT INTO "geoLoc"
 		("ipAddressV4", provider, city, country, "countryCode", region, timezone, "zipCode", latitude, longitude)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+	countSimilarRecentGeoLoc string = `SELECT COUNT(1) FROM "geoLoc"
+		WHERE "ipAddressV4" = $1 and instant > $2`
 )
+
+var (
+	templateFiles = []string{"tpl/ip.html"}
+	ipTemplate    *template.Template
+)
+
+func init() {
+	tplContent, err := assets.Asset("ip.html")
+	if err != nil {
+		log.Fatalln(err)
+	}
+	ipTemplate, err = template.New("ip").Parse(string(tplContent))
+	if err != nil {
+		log.Fatalln(err)
+	}
+}
 
 // ipAddress is the represention of the IP address of the remote caller, providing also the source from where it was evaluated.
 type ipAddress struct {
@@ -37,59 +57,25 @@ type geoLoc struct {
 	Longitude   float64 `json:"lon"`
 }
 
-// fetchGeoAndPersist aims at getting the geographical location of the IP address and save it in the database.
-func (ipAddress *ipAddress) fetchGeoAndPersist() {
-	_, err := Db.Exec(insertIPResultQuery, ipAddress.IPAddressV4, ipAddress.Source)
-	if err != nil {
-		log.Println("Error", err)
-		return
-	}
-
-	res, err := http.Get("http://ip-api.com/json/" + ipAddress.IPAddressV4)
-	if err != nil {
-		log.Println("Error", err)
-		return
-	}
-
-	// Unmarshal the response to the structure.
-	defer res.Body.Close()
-	var geoLoc = new(geoLoc)
-	err = json.NewDecoder(res.Body).Decode(geoLoc)
-	if err != nil {
-		log.Println("Error", err)
-		return
-	}
-	if DebugMode {
-		log.Printf("Result for Geo localisation: %v\n", *geoLoc)
-	}
-
-	// Persist the geo localization.
-	_, err = Db.Exec(insertGeoLocQuery, ipAddress.IPAddressV4, geoLoc.Provider, geoLoc.City, geoLoc.Country, geoLoc.CountryCode, geoLoc.Region, geoLoc.Timezone, geoLoc.ZipCode, geoLoc.Latitude, geoLoc.Longitude)
-	if err != nil {
-		log.Println("Error", err)
-		return
-	}
-
-}
-
 // HandleIPRequest handles all the incoming requests to determine the source IP address.
 func HandleIPRequest(router *mux.Router, rootPath string) {
-	router.HandleFunc(rootPath, mapRequestAndInvoke).Methods(http.MethodGet).HeadersRegexp("Accept", "application/(xml|json|javascript)")
+	router.
+		Methods(http.MethodGet).
+		Path(rootPath).
+		HeadersRegexp("Accept", ".*((application/((xhtml+)?xml|json|javascript))|(text/x?html)).*").
+		HandlerFunc(provideIP).
+		Name("ip")
 }
 
-// mapRequestAndInvoke check if the request can be processed and run the adequate function.
-func mapRequestAndInvoke(w http.ResponseWriter, req *http.Request) {
-	getIP(w, req)
-}
-
-// getIP processes the request to known the IP address of the remote caller of a GET call.
-func getIP(w http.ResponseWriter, req *http.Request) {
+// provideIP processes the request to known the IP address of the remote caller of a GET call.
+func provideIP(w http.ResponseWriter, req *http.Request) {
 	result, error := evaluateIPAddress(req)
 	if error != nil {
 		result.Error = error.Error()
 	}
 	go result.fetchGeoAndPersist()
-	writeResult(w, req, result)
+
+	writeReponse(w, req, ipTemplate, result)
 }
 
 // evaluateIPAddress determines what the IP address of the remote caller is, based upon the HTTP request details.
@@ -115,4 +101,52 @@ func evaluateIPAddress(req *http.Request) (*ipAddress, error) {
 		result.Source = "X-Forwarded-For"
 	}
 	return &result, nil
+}
+
+// fetchGeoAndPersist aims at getting the geographical location of the IP address and save it in the database.
+func (ipAddress *ipAddress) fetchGeoAndPersist() {
+	_, err := Db.Exec(insertIPResultQuery, ipAddress.IPAddressV4, ipAddress.Source)
+	if err != nil {
+		log.Println("Error", err)
+		return
+	}
+
+	// Lookup of a recent similar geo localisation for the same IP Address.
+	weekBefore := time.Now().Add(time.Hour * 24 * 7)
+	row := Db.QueryRow(countSimilarRecentGeoLoc, ipAddress.IPAddressV4, weekBefore)
+	var count int
+	if err = row.Scan(&count); err != nil {
+		log.Println("Error", err)
+		return
+	}
+
+	if count == 0 {
+		res, err := http.Get("http://ip-api.com/json/" + ipAddress.IPAddressV4)
+		if err != nil {
+			log.Println("Error", err)
+			return
+		}
+
+		// Unmarshal the response to the structure.
+		defer res.Body.Close()
+		var geoLoc = new(geoLoc)
+		err = json.NewDecoder(res.Body).Decode(geoLoc)
+		if err != nil {
+			log.Println("Error", err)
+			return
+		}
+		if DebugMode {
+			log.Printf("Result for Geo localisation: %v\n", *geoLoc)
+		}
+
+		// Persist the geo localization.
+		_, err = Db.Exec(insertGeoLocQuery, ipAddress.IPAddressV4, geoLoc.Provider, geoLoc.City, geoLoc.Country, geoLoc.CountryCode, geoLoc.Region, geoLoc.Timezone, geoLoc.ZipCode, geoLoc.Latitude, geoLoc.Longitude)
+		if err != nil {
+			log.Println("Error", err)
+			return
+		}
+	} else {
+		log.Println("No need to refresh the geo localisation", err)
+	}
+
 }

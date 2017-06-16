@@ -1,0 +1,3 @@
+rm -rf assets
+go-bindata -pkg assets -o ./assets/assets.go -prefix static static/...
+git add assets

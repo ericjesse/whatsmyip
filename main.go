@@ -90,6 +90,7 @@ func main() {
 	// Create a Gorilla Mux router.
 	router := mux.NewRouter()
 	handlers.HandleIPRequest(router, "/ip")
+	handlers.HandleStaticRequest(router, "/static")
 
 	// Add the Negroni Middlewares.
 	n := negroni.New()

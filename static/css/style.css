@@ -1,0 +1,13 @@
+body {
+  background-color: inherit;
+  font-family: Arial;
+}
+
+body > div#ip {
+  margin-top: 50px;
+  text-align: center;
+}
+
+body > div#ip > p span{
+  margin-right: 15px;
+}

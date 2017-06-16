@@ -1,3 +1,4 @@
+// Package handlers is in charge of handling the different incoming requests.
 package handlers
 
 import (
@@ -5,7 +6,10 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"html/template"
+	"log"
 	"net/http"
+	"strings"
 )
 
 var (
@@ -15,19 +19,39 @@ var (
 	DebugMode bool
 )
 
-func writeResult(w http.ResponseWriter, req *http.Request, body interface{}) {
+func writeReponse(w http.ResponseWriter, req *http.Request, template *template.Template, body interface{}) {
+	var contentType string
+	accept := req.Header.Get("Accept")
+	log.Println("Accept", accept)
+	switch {
+	case strings.Contains(accept, "text/html"):
+		contentType = "text/html"
+		fallthrough
+	case strings.Contains(accept, "application/xhtml+xml"):
+		if contentType == "" {
+			contentType = "application/xhtml+xml"
+		}
+		w.Header().Set("Content-Type", fmt.Sprintf("%s; charset=utf-8", contentType))
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		template.Execute(w, body)
+	default:
+		writeApiReponse(w, req, accept, body)
+	}
+}
+
+func writeApiReponse(w http.ResponseWriter, req *http.Request, accept string, body interface{}) {
 	var responseBody, contentType string
 
 	// Check what the client expects as format.
-	switch accept := req.Header.Get("Accept"); accept {
-	case "application/xml":
+	switch {
+	case strings.Contains(accept, "application/xml"):
 		contentType = "application/xml"
 		xmlBody, _ := xml.Marshal(body)
 		responseBody = string(xmlBody)
-	case "application/json":
+	case strings.Contains(accept, "application/json"):
 		contentType = "application/json"
 		fallthrough
-	case "application/javascript":
+	case strings.Contains(accept, "application/javascript"):
 		fallthrough
 	default:
 		if contentType == "" { // Default response type is JSON.
