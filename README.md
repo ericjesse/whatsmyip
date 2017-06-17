@@ -35,10 +35,10 @@ $ ./whatsmyip -port 5000 -dbType postgres -dbUrl <url to the db> -dataRetentionD
 Your app should now be running on [localhost:5000/ip](http://localhost:5000/ip).
 
 ## Parameters
-- port: the port to listen for the HTTP communications. It can also be set by the environment variable ```PORT```, which has the priority.
+- port: the port to listen for the HTTP communications. It can also be set by the environment variable ```PORT```, but the parameter prevails.
 - dbType: the type of the database to use to save usage data. Only ```postgres``` is supported, which is the default value if the parameter is omitted.
-- dbUrl: the URL to the database, e.g: ```postgres://whatsmyip:whatsmyip@hostname/whatsmyip?sslmode=disable```. It can also be set by the environment variable ```DATABASE_URL```, which has the priority.
-- dataRetentionDuration: the duration for the data retention, e.g: "300ms", "-1.5h" or "2h45m". Default is ```6 weeks``` if omitted. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h". It can also be set by the environment variable ```DATA_RETENTION```, which has the priority.
+- dbUrl: the URL to the database, e.g: ```postgres://whatsmyip:whatsmyip@hostname/whatsmyip?sslmode=disable```. It can also be set by the environment variable ```DATABASE_URL```, but the parameter prevails.
+- dataRetentionDuration: the duration for the data retention, e.g: "300ms", "-1.5h" or "2h45m". Default is ```6 weeks``` if omitted. Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h". It can also be set by the environment variable ```DATA_RETENTION```, but the parameter prevails.
 
 ## Running locally using Heroku
 
